@@ -1,0 +1,143 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Using Windows Server as a Bastion Host
+
+Resources:
+# VPC & Internet Gateway
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 172.16.0.0/16
+      Tags:
+        - Key: Name
+          Value: rdp-vpc-1
+
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: rdp-igw-1
+
+  IgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref Igw
+      VpcId: !Ref Vpc
+
+# Public Subnet & Route Table
+  PubSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-2a
+      CidrBlock: 172.16.1.0/24
+      Tags:
+        - Key: Name
+          Value: rdp-pub-sn1
+
+  PubSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-2c
+      CidrBlock: 172.16.2.0/24
+      Tags:
+        - Key: Name
+          Value: rdp-pub-sn2
+
+  PubRt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: rdp-pub-rt12
+
+  PubRt12Sn1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PubRt12
+      SubnetId: !Ref PubSn1
+
+  PubRt12Sn2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PubRt12
+      SubnetId: !Ref PubSn2
+
+  PubRt12DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IgwAttachment
+    Properties:
+      RouteTableId: !Ref PubRt12
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+
+# Private Subnet & Route Table
+  PriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-2a
+      CidrBlock: 172.16.3.0/24
+      Tags:
+        - Key: Name
+          Value: rdp-pri-sn3
+
+  PriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: ap-northeast-2c
+      CidrBlock: 172.16.4.0/24
+      Tags:
+        - Key: Name
+          Value: rdp-pri-sn4
+
+  PriRt34:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: rdp-pri-rt34
+
+  PriRt34Sn3Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PriRt34
+      SubnetId: !Ref PriSn3
+
+  PriRt34Sn4Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PriRt34
+      SubnetId: !Ref PriSn4
+
+  PriRt34DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway
+    Properties:
+      RouteTableId: !Ref PriRt34
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+# NAT Gateway & EIP
+  NatGatewayEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Tags:
+        - Key: Name
+          Value: rdp-eip-nat
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: NatGatewayEip
+    Properties:
+      AllocationId: !GetAtt NatGatewayEip.AllocationId
+      SubnetId: !Ref PubSn1
+      Tags:
+        - Key: Name
+          Value: rdp-natgw-1
+...

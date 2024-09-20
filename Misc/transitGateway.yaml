@@ -1,0 +1,531 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template for testing transit gateway
+
+Resources:
+# VPC 생성:TgwVpc0~2
+  TgwVpc0:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: tgw-vpc-0
+
+  TgwVpc1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: tgw-vpc-1
+
+  TgwVpc2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: tgw-vpc-2
+
+# 인터넷 게이트웨이 생성:TgwIgw
+  TgwIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: tgw-igw-vpc0
+
+# 인터넷 게이트웨이와 VPC 연결:VpcIgwAtt
+  VpcIgwAtt:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref TgwVpc0
+      InternetGatewayId: !Ref TgwIgw
+
+# VPC0의 공용 서브넷 생성:Tgw0PubSn1~2
+  Tgw0PubSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc0
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-sn1
+
+  Tgw0PubSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc0
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-sn2
+
+# VPC0의 사설 서브넷 생성:Tgw0PriSn3~4
+  Tgw0PriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc0
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-sn3
+
+  Tgw0PriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc0
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-sn4
+
+# VPC1의 사설 서브넷 생성:Tgw1PriSn1~4
+  Tgw1PriSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc1
+      CidrBlock: 10.10.1.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-sn1
+
+  Tgw1PriSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc1
+      CidrBlock: 10.10.2.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-sn2
+
+  Tgw1PriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc1
+      CidrBlock: 10.10.3.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-sn3
+
+  Tgw1PriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc1
+      CidrBlock: 10.10.4.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-sn4
+
+# VPC2의 사설 서브넷 생성:Tgw2PriSn1~4
+  Tgw2PriSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc2
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-sn1
+
+  Tgw2PriSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc2
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-sn2
+
+  Tgw2PriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc2
+      CidrBlock: 10.20.3.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-sn3
+
+  Tgw2PriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TgwVpc2
+      CidrBlock: 10.20.4.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-sn4
+
+# VPC0의 Route Table 생성:Tgw0Rt12
+  Tgw0Rt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc0
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-rt12
+
+  Tgw0Sn1Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw0PubSn1
+      RouteTableId: !Ref Tgw0Rt12
+
+  Tgw0Sn2Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw0PubSn2
+      RouteTableId: !Ref Tgw0Rt12
+
+  Tgw0Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VpcIgwAtt
+    Properties:
+      RouteTableId: !Ref Tgw0Rt12
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref TgwIgw
+
+# VPC0의 Route Table 생성:Tgw0Rt34
+  Tgw0Rt34:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc0
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-rt34
+
+  Tgw0Sn3Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw0PriSn3
+      RouteTableId: !Ref Tgw0Rt34
+
+  Tgw0Sn4Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw0PriSn4
+      RouteTableId: !Ref Tgw0Rt34
+
+# VPC1의 Route Table 생성:Tgw1Rt12
+  Tgw1Rt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc1
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-rt12
+
+  Tgw1Sn1Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw1PriSn1
+      RouteTableId: !Ref Tgw1Rt12
+
+  Tgw1Sn2Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw1PriSn2
+      RouteTableId: !Ref Tgw1Rt12
+
+# VPC1의 Route Table 생성:Tgw1Rt34
+  Tgw1Rt34:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc1
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-rt34
+
+  Tgw1Sn3Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw1PriSn3
+      RouteTableId: !Ref Tgw1Rt34
+
+  Tgw1Sn4Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw1PriSn4
+      RouteTableId: !Ref Tgw1Rt34
+
+# VPC2의 Route Table 생성:Tgw2Rt12
+  Tgw2Rt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc2
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-rt12
+
+  Tgw2Sn1Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw2PriSn1
+      RouteTableId: !Ref Tgw2Rt12
+
+  Tgw2Sn2Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw2PriSn2
+      RouteTableId: !Ref Tgw2Rt12
+
+# VPC2의 Route Table 생성:Tgw2Rt34
+  Tgw2Rt34:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TgwVpc2
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-rt34
+
+  Tgw2Sn3Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw2PriSn3
+      RouteTableId: !Ref Tgw2Rt34
+
+  Tgw2Sn4Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Tgw2PriSn4
+      RouteTableId: !Ref Tgw2Rt34
+
+# 보안 그룹 생성:TgwSecGroup0
+  TgwSecGroup0:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref TgwVpc0
+      SecurityGroupIngress:
+        # SSH
+        - IpProtocol: tcp 
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # HTTP
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        # HTTPS
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        # ICMP
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+        #TCP3128, 10.0.0.0/16 - 10.20.0.0/16을 축약 (원래는 11이지만 간단하게 8로 축약)
+        - IpProtocol: tcp
+          FromPort: 3128
+          ToPort: 3128
+          CidrIp: 10.0.0.0/8
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: tgw-sg-vpc0
+
+# 보안 그룹 생성:TgwSecGroup1
+  TgwSecGroup1:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref TgwVpc1
+      SecurityGroupIngress:
+        # SSH
+        - IpProtocol: tcp 
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # ICMP
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: tgw-sg-vpc1
+
+# 보안 그룹 생성:TgwSecGroup2
+  TgwSecGroup2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref TgwVpc2
+      SecurityGroupIngress:
+        # SSH
+        - IpProtocol: tcp 
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        # ICMP
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: tgw-sg-vpc2
+
+# 키 페어 생성:TgwKeyPair
+  # TgwKeyPair:
+  #   Type: 'AWS::EC2::KeyPair'
+  #   Properties:
+  #     KeyName: tgw-key
+  #     PublicKeyMaterial: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCy3TzEavtoUdsDGQQxb/wArdy/GfBvo4r7ko22HEnpJoCBvVZPqfr5N8Sk7NsnWkHwQsu/aSiGV7IfSiKG7WUPcO8eIGgzoi09916GcaA7EEzZQ8071g/CPWzidUbBOtZf/5e3I8lkQMtGGGjaSWgqcsAzmFndTneqnwzG2lbbZwRTycwUz6S6BYfTAEK/E6sgO+17EryaN+CJkjbEmFYKQxnW+zROzyso56vvRyPmxXlBFOO2UrDLFTBXR8sFoMelME8dnZS49xhYr+3NRhqF3cFB7dfYMsn1lG48Xsm/YqhiDIPIl4ZhTZB3Lu6RxLOHdTVbIddEOO6E/sCMk+Mh rsa-key-20240912
+  #     Tags:
+  #       - Key: Name
+  #         Value: tgw-key
+          
+
+# 인스턴스 생성:Tgw0Ec21
+  Tgw0Ec21:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      KeyName: tgw-key
+      VpcId: !Ref TgwVpc0
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: TgwSecGroup0
+          PrivateIpAddress: 10.0.1.10
+          SubnetId: !Ref Tgw0PubSn1
+      Tags:
+        - Key: Name
+          Value: tgw-vpc0-ec2-1
+
+# 인스턴스 생성:Tgw1Ec21
+  Tgw1Ec21:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      VpcId: !Ref TgwVpc1
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: TgwSecGroup1
+          PrivateIpAddress: 10.10.1.10
+          SubnetId: !Ref Tgw1PriSn1
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-ec2-1
+
+# 인스턴스 생성:Tgw1Ec22
+  Tgw1Ec22:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      VpcId: !Ref TgwVpc1
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: TgwSecGroup1
+          PrivateIpAddress: 10.10.2.10
+          SubnetId: !Ref Tgw1PriSn2
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+      Tags:
+        - Key: Name
+          Value: tgw-vpc1-ec2-2
+
+# 인스턴스 생성:Tgw2Ec21
+  Tgw2Ec21:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      VpcId: !Ref TgwVpc2
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: TgwSecGroup2
+          PrivateIpAddress: 10.20.1.10
+          SubnetId: !Ref Tgw2PriSn1
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-ec2-1
+
+# 인스턴스 생성:Tgw2Ec22
+  Tgw2Ec22:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      VpcId: !Ref TgwVpc2
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: TgwSecGroup2
+          PrivateIpAddress: 10.20.2.10
+          SubnetId: !Ref Tgw2PriSn2
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+      Tags:
+        - Key: Name
+          Value: tgw-vpc2-ec2-2

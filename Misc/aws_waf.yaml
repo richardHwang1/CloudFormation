@@ -1,0 +1,196 @@
+---
+Resources:
+# VPC & Internet Gateway
+  WafVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+     CidrBlock: 10.0.0.0/16
+     Tags:
+        - Key: Name
+          Value: waf-vpc
+
+  WafIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: waf-igw
+
+  WafIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref WafIgw
+      VpcId: !Ref WafVpc
+
+# Subnet & Route Table
+  WafPubSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WafVpc
+      AvailabilityZone: ap-northeast-2a
+      CidrBlock: 10.0.0.0/24
+      Tags:
+        - Key: Name
+          Value: waf-pub-sn1
+
+  WafPubSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref WafVpc
+      AvailabilityZone: ap-northeast-2c
+      CidrBlock: 10.0.1.0/24
+      Tags:
+        - Key: Name
+          Value: waf-pub-sn2
+
+  WafPubRt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref WafVpc
+      Tags:
+        - Key: Name
+          Value: waf-pub-rt12
+
+  WafPubRtAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref WafPubRt12
+      SubnetId: !Ref WafPubSn1
+
+  WafPubRtAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref WafPubRt12
+      SubnetId: !Ref WafPubSn2
+
+  WafPubRtDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref WafPubRt12
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref WafIgw
+
+# ALB & Security Group
+  WafSgAlb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB Security Group
+      VpcId: !Ref WafVpc
+      Tags:
+        - Key: Name
+          Value: waf-sg-alb
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+
+  WafTg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: waf-tg
+      Port: 80
+      Protocol: HTTP
+      HealthCheckPath: '/login.php'
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref WafVpc
+      TargetType: instance
+      Targets:
+        - Id: !Ref DvwaEc2
+      Tags:
+        - Key: Name
+          Value: waf-tg
+
+  WafAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Name: waf-alb
+      SecurityGroups:
+        - !Ref WafSgAlb
+      Subnets:
+        - !Ref WafPubSn1
+        - !Ref WafPubSn2
+
+  WafAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WafTg
+      LoadBalancerArn: !Ref WafAlb
+      Port: 80
+      Protocol: HTTP
+
+# EC2 & Key Pair & Security Group
+  WafKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: waf-key
+      PublicKeyMaterial: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtl8Yegdeqry4J3waldef1qqyvojxRMObpoN+4ThQC9oWGSPk0Mo4C9PvZst0WTt/tLTa/pLnLw+3WyRA+tLO+P50cTN/i73DZ2VoURWGCZlhnQpTWd8hEFwCmBjIMtC2+IqgUqn4WVtNhDjNs/92WA5TOAjIyejFHqjgShd13XgfKIZDMrxwLm1r9G8pb+gVRLdmx84lYxKlEe9Yza0IsTE3NL7s+rapdd6Uyid2hx7/ZILKn/7t2sp3hmtbkVXMNeZAitKJ1gB+ljY85Z2/Otf5IGp0ptXMxk/jbxs9npCsxWbVFNIvADdmPRjVHDINcxdvHG/DF9GfQLDxEzqph waf-key
+
+  WafSgEc2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 Security Group
+      VpcId: !Ref WafVpc
+      Tags:
+        - Key: Name
+          Value: waf-sg-ec2
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+
+  DvwaEc2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c0dea96ae6850ced
+      InstanceType: t2.micro
+      KeyName: !Ref WafKeyPair
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          GroupSet:
+            - !Ref WafSgEc2
+          SubnetId: !Ref WafPubSn1
+      Tags:
+        - Key: Name
+          Value: dvwa-ec2
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum install -y httpd mariadb-server mariadb php php-mysql php-gd
+          systemctl start httpd mariadb
+          systemctl enable httpd mariadb
+          echo -e "\n\ntest1234\ntest1234\ny\ny\ny\ny\n" | /usr/bin/mysql_secure_installation
+          mysql -uroot -ptest1234 -e "create database dvwa; grant all on dvwa.* to 'dvwa'@'localhost' identified by '1234'; flush privileges;"
+          wget https://github.com/digininja/DVWA/archive/refs/heads/master.zip
+          unzip master.zip
+          mv DVWA-master/* /var/www/html/
+          mv DVWA-master/.htaccess /var/www/html/
+          cp /var/www/html/config/config.inc.php.dist /var/www/html/config/config.inc.php
+          sed -i "s/p@ssw0rd/1234/g" /var/www/html/config/config.inc.php
+          sed -i "s/DVWA\[ 'disable_authentication' \] = false/DVWA\[ 'disable_authentication' \] = true/g" /var/www/html/config/config.inc.php
+          sed -i "s/DVWA\[ 'default_security_level' \] = 'impossible'/DVWA\[ 'default_security_level' \] = 'low'/g" /var/www/html/config/config.inc.php
+          sed -i "s/allow_url_include = Off/allow_url_include = On/g" /etc/php.ini
+          chmod 777 /var/www/html/config
+          chmod 777 /var/www/html/hackable/uploads
+          chmod 666 /var/www/html/external/recaptcha/recaptchalib.php
+          systemctl restart httpd
+...

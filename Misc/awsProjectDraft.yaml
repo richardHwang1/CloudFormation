@@ -1,0 +1,401 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template for AWS Project
+
+Resources:
+# VPC 생성
+  SeoulVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.1.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: seoul-vpc
+
+# 인터넷 게이트웨이 생성
+  SeoulIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: seoul-igw
+
+# 인터넷 게이트웨이와 VPC 연결:VpcIgwAtt
+  VpcIgwAtt:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SeoulVpc
+      InternetGatewayId: !Ref SeoulIgw
+
+# VPC의 서브넷 생성
+  SeoulPubSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.1.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: seoul-pub-sn1
+
+  SeoulPubSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.2.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: seoul-pub-sn2
+
+  SeoulPriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.3.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: seoul-pri-sn3
+
+  SeoulPriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.4.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: seoul-pri-sn4
+
+  SeoulConSn5:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.5.0/24
+      AvailabilityZone: "ap-northeast-2a"
+      Tags:
+        - Key: Name
+          Value: seoul-con-sn5
+
+  SeoulConSn6:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SeoulVpc
+      CidrBlock: 10.1.6.0/24
+      AvailabilityZone: "ap-northeast-2c"
+      Tags:
+        - Key: Name
+          Value: seoul-con-sn6
+
+# VPC의 공용 Route Table 생성
+  SeoulPubRt12:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SeoulVpc
+      Tags:
+        - Key: Name
+          Value: seoul-pub-rt12
+
+  SeoulSn1Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulPubSn1
+      RouteTableId: !Ref SeoulPubRt12
+
+  SeoulSn2Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulPubSn2
+      RouteTableId: !Ref SeoulPubRt12
+
+  Seoul12DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcIgwAtt
+    Properties:
+      RouteTableId: !Ref SeoulPubRt12
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref SeoulIgw
+
+# VPC의 사설 Route Table 생성
+  SeoulPriRt34:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SeoulVpc
+      Tags:
+        - Key: Name
+          Value: seoul-pri-rt34
+
+  SeoulSn3Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulPriSn3
+      RouteTableId: !Ref SeoulPriRt34
+
+  SeoulSn4Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulPriSn4
+      RouteTableId: !Ref SeoulPriRt34
+
+  Seoul34DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcIgwAtt
+    Properties:
+      RouteTableId: !Ref SeoulPriRt34
+      DestinationCidrBlock: 0.0.0.0/0
+      InstanceId: !Ref SeoulNatInstance
+
+# VPC의 Con Route Table 생성
+  SeoulConRt56:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SeoulVpc
+      Tags:
+        - Key: Name
+          Value: seoul-con-rt56
+
+  SeoulSn5Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulConSn5
+      RouteTableId: !Ref SeoulConRt56
+
+  SeoulSn6Attch:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SeoulConSn6
+      RouteTableId: !Ref SeoulConRt56
+
+# 보안 그룹 생성: SeoulAlbSg
+  SeoulAlbSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SeoulAlbSg
+      VpcId: !Ref SeoulVpc
+      SecurityGroupIngress:
+        # HTTP
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        # HTTPS
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: seoul-alb-sg
+
+# 보안 그룹 생성: SeoulNatSg
+  SeoulNatSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SeoulNatSg
+      VpcId: !Ref SeoulVpc
+      SecurityGroupIngress:
+        # SSH
+        - IpProtocol: tcp 
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.1.2.0/24
+        # ICMP
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: seoul-nat-sg
+
+# 보안 그룹 생성: SeoulVpnSg
+  SeoulVpnSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SeoulVpnSg
+      VpcId: !Ref SeoulVpc
+      SecurityGroupIngress:
+        # SSH
+        - IpProtocol: tcp 
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 121.160.41.219/32
+        # HTTPS
+        - IpProtocol: tcp 
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 121.160.41.219/32
+        # TCP943
+        - IpProtocol: tcp 
+          FromPort: 943
+          ToPort: 943
+          CidrIp: 121.160.41.219/32
+        # TCP945
+        - IpProtocol: tcp 
+          FromPort: 945
+          ToPort: 945
+          CidrIp: 121.160.41.219/32
+        # UDP1194
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: 121.160.41.219/32
+      Tags:
+        - Key: Name
+          Value: seoul-openvpn-sg
+
+# 보안 그룹 생성: SeoulWebSg
+  SeoulWebSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SeoulWebSg
+      VpcId: !Ref SeoulVpc
+      SecurityGroupIngress:
+        # HTTP
+        - IpProtocol: tcp 
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref SeoulAlbSg
+        # HTTPS
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref SeoulAlbSg
+        # ICMP
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: seoul-web-sg
+
+# 키 페어 생성: SeoulKeyPair
+  SeoulKeyPair:
+    Type: 'AWS::EC2::KeyPair'
+    Properties:
+      KeyName: seoul-key
+      PublicKeyMaterial: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCEw4rdlAOULmE0lqOPwd8Fk2aZSnd11kplJkN4oIA0m8X4F8UkxGryUpesAg2oz9yz37kN/kdPXY//ehHpGP8vBhLVA0r23lmomBP1Qpag3i159gmZdVW3Rc+3m/pMymcXwhFhPR0W/UUf7OH/x5bwGJjTjxrursvYQLvdImqID5Vub//hiEsvCMnQVeOENHNL2tMZI43ueEiJ/DbKYRf3r6t6hjhUZJgw92fuRsdAe4XA2aZq/aFgbDPNqnYUmmaaKz9RJgqgU4M/1z3+nZAJC66ACBBnPSc4d14LKqKkP9t9w+1SuAaaoRUqyZ9MiQ4KenfUkMyjM7+WJsgJBZ6P rsa-key-20240913
+      Tags:
+        - Key: Name
+          Value: seoul-key
+          
+# 인스턴스 생성
+  SeoulNatInstance:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      KeyName: seoul-key
+      InstanceType: t2.micro
+      VpcId: !Ref SeoulVpc
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: SeoulNatSg
+          PrivateIpAddress: 10.1.1.100
+          SubnetId: !Ref SeoulPubSn1
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          wget https://raw.githubusercontent.com/richardHwang1/project1/main/nat-instance.sh
+          chmod +x nat-instance.sh
+          sh nat-instance.sh
+          rm -f nat-instance.sh
+          wget https://raw.githubusercontent.com/richardHwang1/project1/main/nfs-server.sh
+          chmod +x nfs-server.sh
+          sh nfs-server.sh
+          rm -f nfs-server.sh
+      Tags:
+        - Key: Name
+          Value: seoul-nat-instance
+
+# 인스턴스 생성
+  myLaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateData:
+        ImageId: ami-07d737d4d8119ad79
+        InstanceType: t2.micro
+        KeyName: seoul-key
+        SecurityGroups:
+          - Ref: SeoulWebSg
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            wget https://raw.githubusercontent.com/richardHwang1/project1/main/seoul-web-instance.sh
+            chmod +x seoul-web-instance.sh
+            sh seoul-web-instance.sh
+            rm -f seoul-web-instance.sh
+
+# 대상 그룹 생성
+  SeoulTg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Protocol: HTTP
+      Port: 80
+      Name: seoul-web-tg
+      VpcId: !Ref SeoulVpc
+      Targets:
+        - Id: !Ref SeoulNatInstance
+
+# ALB
+  SeoulWebAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: seoul-web-alb
+      SecurityGroups: 
+        - SeoulAlbSg
+      Subnets: 
+        - !Ref SeoulPubSn1
+        - !Ref SeoulPubSn2
+  
+  AlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref SeoulWebAlb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref SeoulTg
+
+# Auto Scaling Image
+###
+Parameters:
+  LatestAmiId:
+    Description: Region specific image from the Parameter Store
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  InstanceType:
+    Description: Amazon EC2 instance type for the instances
+    Type: String
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    Default: t3.micro
+  Subnets:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Description: A list of subnets for the Auto Scaling group
+Resources:
+  myLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateName: !Sub ${AWS::StackName}-launch-template
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: !Ref InstanceType
+  myASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref myLaunchTemplate
+        Version: !GetAtt myLaunchTemplate.LatestVersionNumber
+      MaxSize: '1'
+      MinSize: '1'
+      VPCZoneIdentifier: !Ref Subnets
+###

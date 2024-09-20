@@ -1,0 +1,289 @@
+---
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+
+### VPC 설정 ###
+
+  MyVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      Tags:
+        - Key: Name
+          Value: "$(ProjectName)-1"
+
+### 게이트웨이 설정 ###
+
+  MyIgw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: my-igw-1
+
+### VPC-게이트웨이 연결 ###
+
+  MyIgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVpc
+      InternetGatewayId: !Ref MyIgw
+
+### 공인 서브넷, 라우팅 테이블 설정 ###
+
+  MyPubSn1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: 192.168.1.0/24
+      AvailabilityZone: ap-northeast-2a
+      Tags:
+        - Key: Name
+          Value: my-pub-sn1
+
+  MyPubSn2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: 192.168.2.0/24
+      AvailabilityZone: ap-northeast-2c
+      Tags:
+        - Key: Name
+          Value: my-pub-sn2
+
+  MyPubRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVpc
+      Tags:
+        - Key: Name
+          Value: My-pub-rt12
+
+  MyPubSn1Attachment:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPubSn1
+      RouteTableId: !Ref MyPubRt
+
+  MyPubSn2Attachment:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPubSn2
+      RouteTableId: !Ref MyPubRt
+
+### 사설 서브넷, 라우팅 테이블 설정 ###
+
+  MyPriSn3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: 192.168.3.0/24
+      AvailabilityZone: ap-northeast-2a
+      Tags:
+        - Key: Name
+          Value: My-pri-sn3
+
+  MyPriSn4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVpc
+      CidrBlock: 192.168.4.0/24
+      AvailabilityZone: ap-northeast-2c
+      Tags:
+        - Key: Name
+          Value: My-pri-sn4
+
+  MyPriRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVpc
+      Tags:
+        - Key: Name
+          Value: My-pri-rt
+
+  MyPriSn3Attachment:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPriSn3
+      RouteTableId: !Ref MyPriRt
+
+  MyPriSn4Attachment:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref MyPriSn4
+      RouteTableId: !Ref MyPriRt
+
+### NAT 게이트웨이, 탄력적 IP 설정 ###
+
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   DependsOn: NATGatewayEIP
+   Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref MyPubSn1
+      Tags:
+        - Key: Name
+          Value: my-natgw-1
+  
+  NATGatewayEIP:
+   Type: AWS::EC2::EIP
+   Properties:
+      Domain: MyVpc
+      Tags:
+        - Key: Name
+          Value: my-eip-nat
+
+### 기본 경로 설정 ###
+  
+  MyRoute:
+    Type: AWS::EC2::Route
+    DependsOn: MyIgw
+    Properties:
+      RouteTableId: !Ref MyPubRt
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MyIgw
+  
+  RouteNATGateway:
+   Type: AWS::EC2::Route
+   Properties:
+      RouteTableId: !Ref MyPriRt
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NATGateway
+
+### 보안 그룹, 인바운드 규칙 설정 ###
+
+  MySgWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH
+      VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  
+
+### 인스턴스 설정 ###
+
+  MyWeb1:
+    Type: AWS::EC2::Instance
+    DependsOn: RouteNATGateway
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet: 
+            - Ref: MySgWeb
+          SubnetId: !Ref MyPriSn3
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+          yum install -y httpd
+          echo "test" > /var/www/html/index.html
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<font Color=red size=20>TEST Web Server 1</font>" > /var/www/html/index.html
+
+  MyWeb2:
+    Type: AWS::EC2::Instance
+    DependsOn: RouteNATGateway
+    Properties: 
+      ImageId: ami-07d737d4d8119ad79 # 서울 리전용 이미지 ID
+      InstanceType: t2.micro
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: 0
+          GroupSet: 
+            - Ref: MySgWeb
+          SubnetId: !Ref MyPriSn4
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          echo "p@ssw0rd" | passwd --stdin root
+          sed -i "s/^#PermitRootLogin yes/PermitRootLogin yes/g" /etc/ssh/sshd_config
+          sed -i "s/^PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+          systemctl restart sshd
+          yum install -y httpd
+          echo "test" > /var/www/html/index.html
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<font Color=blue size=20>TEST Web Server 2</font>" > /var/www/html/index.html
+
+### ALB, 대상그룹 설정 ###
+
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: MyALB
+      Scheme: internet-facing
+      SecurityGroups: 
+        - !Ref MySgALB
+      Subnets: 
+        - !Ref MyPubSn1
+        - !Ref MyPubSn2
+
+  MySgALB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: my-sg-alb
+      VpcId: !Ref MyVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  MyTg:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: my-alb-tg
+      Port: 80
+      Protocol: HTTP
+      HealthCheckPath: '/'
+      HealthCheckIntervalSeconds: 20
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref MyVpc
+      TargetType: instance
+      Targets:
+        - Id: !Ref MyWeb1
+        - Id: !Ref MyWeb2
+      Tags:
+        - Key: Name
+          Value: my-web-alb-tg
+
+  HttpListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTg
+      LoadBalancerArn: !Ref MyALB
+      Port: 80
+      Protocol: HTTP
+
+...
