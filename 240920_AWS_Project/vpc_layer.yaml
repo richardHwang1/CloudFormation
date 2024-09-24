@@ -1,20 +1,49 @@
 ---
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project Name
+  RegionName:
+    Type: String
+    Description: Region Name
+
+Mappings:
+  CidrMap:
+    ap-northeast-2:
+      VpcCidr: 172.16.0.0/16
+      PubSn1Cidr: 172.16.1.0/24
+      PubSn2Cidr: 172.16.2.0/24
+      WebSn3Cidr: 172.16.3.0/24
+      WebSn4Cidr: 172.16.4.0/24
+      DbSn5Cidr: 172.16.5.0/24
+      DbSn6Cidr: 172.16.6.0/24
+    ap-southeast-2:
+      VpcCidr: 172.17.0.0/16
+      PubSn1Cidr: 172.17.1.0/24
+      PubSn2Cidr: 172.17.2.0/24
+      WebSn3Cidr: 172.17.3.0/24
+      WebSn4Cidr: 172.17.4.0/24
+      DbSn5Cidr: 172.17.5.0/24
+      DbSn6Cidr: 172.17.6.0/24
+
+
 # VPC & Internet Gateway
 Resources:
   MyVpc:
     Type: AWS::EC2::VPC
     Properties:
-     CidrBlock: 172.16.0.0/16
-     Tags:
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", VpcCidr]
+      Tags:
         - Key: Name
-          Value: my-vpc
+          Value: !Sub "${ProjectName}-${RegionName}-vpc"
 
   MyIgw:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: my-igw
+          Value: !Sub "${ProjectName}-${RegionName}-igw"
 
   MyIGWAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
