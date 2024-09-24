@@ -1,0 +1,113 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Default OpenVPN stack for the WAF Evaluation Project
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project Name
+  RegionName:
+    Type: String
+    Description: Region Name
+  MyPubIp:
+    Type: String
+    Description: My Public IP Address
+    Default: 0.0.0.0/0
+
+Mappings:
+  RegionMap:
+    ap-northeast-2:
+      VpnAmi: ami-09a093fa2e3bfca5a
+      VpnPriIp: 172.16.2.100
+    ap-southeast-2:
+      VpnAmi: ami-056303ef214800fec
+      VpnPriIp: 172.17.2.100
+
+Conditions:
+  CreateOpenVpn: !Equals [!Ref "AWS::Region", ap-northeast-2]
+
+Resources:
+# OpenVPN & Security Group
+  OpenVpnSg:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateOpenVpn
+    Properties:
+      GroupDescription: !Sub "${AWS::Region} OpenVPN Security Group"
+      VpcId: !ImportValue VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: tcp
+          FromPort: 945
+          ToPort: 945
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref MyPubIp
+        - IpProtocol: -1
+          CidrIp: 172.16.0.0/12
+      Tags:
+        - Key : Name
+          Value : !Sub "${ProjectName}-${RegionName}-openvpn-sg"
+
+  OpenVpnInterface:
+    Type: AWS::EC2::NetworkInterface
+    Condition: CreateOpenVpn
+    Properties:
+      Description: OpenVpn Instance Interface Eth0
+      SubnetId: !ImportValue PubSn2Id
+      SourceDestCheck: true
+      GroupSet:
+        - !Ref OpenVpnSg
+      PrivateIpAddress: !FindInMap [RegionMap, !Ref "AWS::Region", VpnPriIp]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${RegionName}-openvpn-interface"
+
+  OpenVpnEip:
+    Type: AWS::EC2::EIP
+    Condition: CreateOpenVpn
+    Properties:
+      InstanceId: !Ref OpenVpn
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${RegionName}-openvpn-eip"
+
+  OpenVpn:
+    Type: AWS::EC2::Instance
+    Condition: CreateOpenVpn
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", VpnAmi]
+      InstanceType: t2.micro
+      KeyName: !ImportValue KeyPairName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          NetworkInterfaceId: !Ref OpenVpnInterface
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-${RegionName}-openvpn"
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          wget https://raw.githubusercontent.com/richardHwang1/project2/refs/heads/main/ubuntu-nfs-server.sh
+          chmod +x ubuntu-nfs-server.sh
+          sh ubuntu-nfs-server.sh
+          rm -f ubuntu-nfs-server.sh
+          wget -P /nfs-shared/ https://raw.githubusercontent.com/richardHwang1/project2/refs/heads/main/ping.sh
+          chmod +x /nfs-shared/ping.sh
+...

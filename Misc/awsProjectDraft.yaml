@@ -301,11 +301,11 @@ Resources:
       UserData:
         Fn::Base64: |
           #!/bin/bash
-          wget https://raw.githubusercontent.com/richardHwang1/project1/main/nat-instance.sh
+          wget https://raw.githubusercontent.com/richardHwang1/project1/refs/heads/main/sh/nat-instance.sh
           chmod +x nat-instance.sh
           sh nat-instance.sh
           rm -f nat-instance.sh
-          wget https://raw.githubusercontent.com/richardHwang1/project1/main/nfs-server.sh
+          wget https://raw.githubusercontent.com/richardHwang1/project1/refs/heads/main/sh/nfs-server.sh
           chmod +x nfs-server.sh
           sh nfs-server.sh
           rm -f nfs-server.sh
@@ -326,7 +326,7 @@ Resources:
         UserData:
           Fn::Base64: |
             #!/bin/bash
-            wget https://raw.githubusercontent.com/richardHwang1/project1/main/seoul-web-instance.sh
+            wget https://raw.githubusercontent.com/richardHwang1/project1/refs/heads/main/sh/seoul-web-instance.sh
             chmod +x seoul-web-instance.sh
             sh seoul-web-instance.sh
             rm -f seoul-web-instance.sh
