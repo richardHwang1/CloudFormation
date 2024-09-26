@@ -14,18 +14,26 @@ Mappings:
       VpcCidr: 172.16.0.0/16
       PubSn1Cidr: 172.16.1.0/24
       PubSn2Cidr: 172.16.2.0/24
-      WebSn3Cidr: 172.16.3.0/24
-      WebSn4Cidr: 172.16.4.0/24
+      PriSn3Cidr: 172.16.3.0/24
+      PriSn4Cidr: 172.16.4.0/24
       DbSn5Cidr: 172.16.5.0/24
       DbSn6Cidr: 172.16.6.0/24
     ap-southeast-2:
       VpcCidr: 172.17.0.0/16
       PubSn1Cidr: 172.17.1.0/24
       PubSn2Cidr: 172.17.2.0/24
-      WebSn3Cidr: 172.17.3.0/24
-      WebSn4Cidr: 172.17.4.0/24
+      PriSn3Cidr: 172.17.3.0/24
+      PriSn4Cidr: 172.17.4.0/24
       DbSn5Cidr: 172.17.5.0/24
       DbSn6Cidr: 172.17.6.0/24
+  AmiMap:
+    ap-northeast-2:
+      Ami: ami-07d737d4d8119ad79
+    sa-east-1:
+      Ami: ami-07a943af5a5ec252b
+
+Conditions:
+  CreateSgIngress: !Equals [!Ref "AWS::Region", ap-northeast-2] # If region is Seoul, create sg for instance
 
 
 # VPC & Internet Gateway
@@ -56,21 +64,21 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2a
-      CidrBlock: 172.16.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ''] # 0 = az a, 1 = az b, 2 = az c, ..., etc.
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", PubSn1Cidr]
       Tags:
         - Key: Name
-          Value: my-pub-sn1
+          Value: !Sub "${ProjectName}-${RegionName}-pub-sn1"
 
   MyPubSn2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2c
-      CidrBlock: 172.16.2.0/24
+      AvailabilityZone: !Select [2, !GetAZs '']
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", PubSn2Cidr]
       Tags:
         - Key: Name
-          Value: my-pub-sn2
+          Value: !Sub "${ProjectName}-${RegionName}-pub-sn2"
 
   MyPubRt12:
     Type: AWS::EC2::RouteTable
@@ -78,7 +86,7 @@ Resources:
       VpcId: !Ref MyVpc
       Tags:
         - Key: Name
-          Value: my-pub-rt12
+          Value: !Sub "${ProjectName}-pub-rt12"
 
   MyPubRtAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -104,21 +112,21 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2a
-      CidrBlock: 172.16.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", PriSn3Cidr]
       Tags:
         - Key: Name
-          Value: my-pri-sn3
+          Value: "${ProjectName}-${RegionName}-pri-sn3"
 
   MyPriSn4:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2c
-      CidrBlock: 172.16.4.0/24
+      AvailabilityZone: !Select [2, !GetAZs '']
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", PriSn4Cidr]
       Tags:
         - Key: Name
-          Value: my-pri-sn4
+          Value: "${ProjectName}-${RegionName}-pri-sn4"
 
   MyPriRt34:
     Type: AWS::EC2::RouteTable
@@ -126,7 +134,7 @@ Resources:
       VpcId: !Ref MyVpc
       Tags:
         - Key: Name
-          Value: my-pri-rt34
+          Value: !Sub "${ProjectName}-pri-rt34"
 
   MyPriRtAssoc3:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -140,33 +148,33 @@ Resources:
       RouteTableId: !Ref MyPriRt34
       SubnetId: !Ref MyPriSn4
 
-  # MyPriRtDefRoute:
-  #   Type: AWS::EC2::Route
-  #   Properties:
-  #     RouteTableId: !Ref MyPriRt34
-  #     DestinationCidrBlock: 0.0.0.0/0
-  #     GatewayId: !Ref NatIgw
+  MyPriRtDefRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyPriRt34
+      DestinationCidrBlock: 0.0.0.0/0
+      InstanceId: !Ref NatInstance
 
 # Database Subnet
   MyDbSn5:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2a
-      CidrBlock: 172.16.5.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", DbSn5Cidr]
       Tags:
         - Key: Name
-          Value: my-db-sn5
+          Value: "${ProjectName}-${RegionName}-db-sn5"
 
   MyDbSn6:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref MyVpc
-      AvailabilityZone: ap-northeast-2c
-      CidrBlock: 172.16.6.0/24
+      AvailabilityZone: !Select [2, !GetAZs '']
+      CidrBlock: !FindInMap [CidrMap, !Ref "AWS::Region", DbSn6Cidr]
       Tags:
         - Key: Name
-          Value: my-db-sn6
+          Value: "${ProjectName}-${RegionName}-db-sn6"
 
   MyDbRt56:
     Type: AWS::EC2::RouteTable
@@ -174,7 +182,7 @@ Resources:
       VpcId: !Ref MyVpc
       Tags:
         - Key: Name
-          Value: my-db-rt-56
+          Value: !Sub "${ProjectName}-db-rt56"
 
   MyDbRtAssoc5:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -201,7 +209,7 @@ Resources:
           DeviceIndex: 0
           GroupSet: 
             - !Ref NatInstanceSg
-          SubnetId: !Ref PubSn1
+          SubnetId: !Ref MyPubSn1
       SourceDestCheck: false
       Tags:
         - Key : Name
@@ -222,31 +230,63 @@ Resources:
           iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
           service iptables save
 
+  NatInstanceSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref MyVpc
+      GroupDescription: !Sub "${AWS::Region} Nat Instance Security Group"
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: !FindInMap [CidrMap, !Ref "AWS::Region", VpcCidr]
+      Tags:
+        - Key : Name
+          Value : !Sub "${ProjectName}-${RegionName}-nat-instance-sg"
+
+  NatInstanceSgIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: CreateSgIngress
+    Properties:
+      GroupId: !GetAtt NatInstanceSg.GroupId
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: 0.0.0.0/0
+
 # Outputs
-  Outputs:
-    VpcId:
-      Description: VPC ID
-      Value: !Ref MyVpc
-      Export:
-        Name: VpcId
-    PubSn1Id:
-      Description: Public Subnet 1 ID
-      Value: !Ref PubSn1
-      Export:
-        Name: PubSn1Id
-    PubSn2Id:
-      Description: Public Subnet 2 ID
-      Value: !Ref PubSn2
-      Export:
-        Name: PubSn2Id
-    WebSn3Id:
-      Description: Private Subnet 3 ID
-      Value: !Ref WebSn3
-      Export:
-        Name: WebSn3Id
-    WebSn4Id:
-      Description: Private Subnet 4 ID
-      Value: !Ref WebSn4
-      Export:
-        Name: WebSn4Id
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref MyVpc
+    Export:
+      Name: VpcId
+  PubSn1Id:
+    Description: Public Subnet 1 ID
+    Value: !Ref MyPubSn1
+    Export:
+      Name: PubSn1Id
+  PubSn2Id:
+    Description: Public Subnet 2 ID
+    Value: !Ref MyPubSn2
+    Export:
+      Name: PubSn2Id
+  WebSn3Id:
+    Description: Private Subnet 3 ID
+    Value: !Ref MyPriSn3
+    Export:
+      Name: PriSn3Id
+  WebSn4Id:
+    Description: Private Subnet 4 ID
+    Value: !Ref MyPriSn4
+    Export:
+      Name: PriSn4Id
+  DbSn5Id:
+    Description: Database Subnet 5 ID
+    Value: !Ref MyDbSn5
+    Export:
+      Name: DbSn5Id
+  DbSn6Id:
+    Description: Database Subnet 6 ID
+    Value: !Ref MyDbSn6
+    Export:
+      Name: DbSn6Id
 ...
